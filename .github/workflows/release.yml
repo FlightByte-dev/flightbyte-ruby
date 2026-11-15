@@ -10,7 +10,8 @@
 #
 # One-time setup on rubygems.org: add a trusted publisher (a pending one
 # before the first release) for the gem flightbyte, the repository
-# FlightByte-dev/flightbyte-ruby and the workflow release.yml.
+# FlightByte-dev/flightbyte-ruby and the workflow release.yml, from the
+# account whose ID is RUBYGEMS_OWNER below.
 name: Release
 
 on:
@@ -95,12 +96,33 @@ jobs:
           ruby -rrubygems/package -e 'spec = Gem::Package.new(ARGV[0]).spec; puts spec.full_name, spec.files' \
             "flightbyte-${{ needs.check.outputs.version }}.gem"
           echo "Rehearsal: the gem was built and nothing was pushed."
-      - name: Configure trusted publishing credentials
-        if: github.event_name == 'push'
-        uses: rubygems/configure-rubygems-credentials@v2.1.0
+      # Trusted publishing, done by hand rather than with
+      # rubygems/configure-rubygems-credentials, which cannot yet name the
+      # owner: RubyGems turns a pending publisher into a gem only when the
+      # token exchange names the account that set it up, by its immutable ID.
+      # The key it hands back is good for 15 minutes and only for gem push.
       - name: Publish
         if: github.event_name == 'push'
-        run: gem push "flightbyte-${{ needs.check.outputs.version }}.gem"
+        env:
+          RUBYGEMS_OWNER: '256135'
+          GEM_FILE: flightbyte-${{ needs.check.outputs.version }}.gem
+        shell: bash
+        run: |
+          jwt="$(curl -sS --fail-with-body \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rubygems.org" | jq -r .value)"
+          echo "::add-mask::$jwt"
+          response="$(jq -n --arg jwt "$jwt" --arg owner "$RUBYGEMS_OWNER" '{jwt: $jwt, owner: $owner}' \
+            | curl -sS -X POST -H 'content-type: application/json' -H 'accept: application/json' \
+                --data @- https://rubygems.org/api/v1/oidc/trusted_publisher/exchange_token)"
+          key="$(jq -r '.rubygems_api_key // empty' <<< "$response" 2> /dev/null || true)"
+          if [[ -z "$key" ]]; then
+            echo "::error::RubyGems handed out no API key for this workflow: $response"
+            exit 1
+          fi
+          echo "::add-mask::$key"
+          echo "API key for $(jq -r '.owner // "an existing gem"' <<< "$response"), expires $(jq -r .expires_at <<< "$response")"
+          GEM_HOST_API_KEY="$key" gem push "$GEM_FILE"
 
   release:
     name: GitHub release
