@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in the gem does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A question about the API itself, your plan or a flight's data is answered faster on [Telegram](https://t.me/flightbyte). A security issue goes by email, as [SECURITY.md](https://github.com/FlightByte-dev/flightbyte-ruby/security/policy) explains, never here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Code that shows it
+      description: The smallest snippet that reproduces it, and the full error and backtrace.
+      render: ruby
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Gem version
+      description: The output of `bundle info flightbyte`, or `gem list flightbyte`.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: ruby
+    attributes:
+      label: Ruby version
+      description: The output of `ruby --version`.
+      placeholder: ruby 3.4.7 (2025-10-08 revision 7a5688e2a2) +PRISM [x86_64-linux]
+    validations:
+      required: true
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Where it runs
+      multiple: true
+      options:
+        - Rails
+        - Sinatra
+        - Hanami or Roda
+        - Another Rack server
+        - A background job (Sidekiq, GoodJob, Solid Queue)
+        - A script or CLI
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: request-id
+    attributes:
+      label: Request id
+      description: For an error from the API, `APIError#request_id`. It lets us find the request in our logs.
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed every API key and webhook signing secret from this report.
+          required: true

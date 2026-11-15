@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions about the API, a flight or your plan
+    url: https://t.me/flightbyte
+    about: Ask on Telegram, or email support@flightbyte.dev.
+  - name: Documentation
+    url: https://flightbyte.dev/docs
+    about: Flights, subscriptions, webhooks and errors, with the full API reference.
+  - name: Report a security issue
+    url: https://github.com/FlightByte-dev/flightbyte-ruby/security/policy
+    about: By email, never in a public issue.

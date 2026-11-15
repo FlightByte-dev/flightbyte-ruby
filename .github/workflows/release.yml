@@ -1,0 +1,136 @@
+# Releases a version when a tag like v1.0.1 is pushed:
+#   1. checks that the tag, FlightByte::VERSION and the gemspec agree and that
+#      CHANGELOG.md has a section for the version, then runs every check;
+#   2. publishes to RubyGems with trusted publishing, unless that version is
+#      already there;
+#   3. creates the GitHub release from the version's CHANGELOG.md section.
+#
+# Run it by hand from the Actions tab to rehearse: it runs every check and
+# builds the gem, but publishes and releases nothing.
+#
+# One-time setup on rubygems.org: add a trusted publisher (a pending one
+# before the first release) for the gem flightbyte, the repository
+# FlightByte-dev/flightbyte-ruby and the workflow release.yml.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check versions, notes and code
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      published: ${{ steps.version.outputs.published }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+          bundler-cache: true
+
+      - id: version
+        name: Compare versions
+        run: |
+          version="$(ruby -Ilib -rflightbyte/version -e 'print FlightByte::VERSION')"
+          gemspec="$(ruby -e 'print Gem::Specification.load("flightbyte.gemspec").version')"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match FlightByte::VERSION $version."
+            exit 1
+          fi
+          if [[ "$gemspec" != "$version" ]]; then
+            echo "::error::flightbyte.gemspec says $gemspec, FlightByte::VERSION says $version."
+            exit 1
+          fi
+          published=false
+          if curl -fsS -o /dev/null "https://rubygems.org/api/v2/rubygems/flightbyte/versions/$version.json"; then
+            published=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "published=$published" >> "$GITHUB_OUTPUT"
+          echo "Version $version, already on RubyGems: $published"
+
+      - name: Release notes
+        run: |
+          {
+            echo "## Release notes for ${{ steps.version.outputs.version }}"
+            echo
+            tool/release_notes.sh "${{ steps.version.outputs.version }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - run: bundle exec rubocop
+      - run: bundle exec rake rbs
+      - run: bundle exec rake test
+
+  publish:
+    name: RubyGems
+    needs: check
+    if: needs.check.outputs.published == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Trusted publishing: RubyGems exchanges this for a short-lived API key.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '4.0'
+      - name: Build
+        run: gem build flightbyte.gemspec --output "flightbyte-${{ needs.check.outputs.version }}.gem"
+      - name: Rehearse
+        if: github.event_name != 'push'
+        run: |
+          ruby -rrubygems/package -e 'spec = Gem::Package.new(ARGV[0]).spec; puts spec.full_name, spec.files' \
+            "flightbyte-${{ needs.check.outputs.version }}.gem"
+          echo "Rehearsal: the gem was built and nothing was pushed."
+      - name: Configure trusted publishing credentials
+        if: github.event_name == 'push'
+        uses: rubygems/configure-rubygems-credentials@v2.1.0
+      - name: Publish
+        if: github.event_name == 'push'
+        run: gem push "flightbyte-${{ needs.check.outputs.version }}.gem"
+
+  release:
+    name: GitHub release
+    needs: [check, publish]
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      needs.check.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists."
+            exit 0
+          fi
+          tool/release_notes.sh "$VERSION" > "$RUNNER_TEMP/notes.md"
+          flags=()
+          # RubyGems marks a prerelease with letters: 1.1.0.pre1, 1.1.0.rc1.
+          [[ "$VERSION" =~ [a-zA-Z] ]] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag \
+            "${flags[@]}"

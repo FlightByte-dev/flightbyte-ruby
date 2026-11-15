@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check (Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.1 is the oldest Ruby the gem supports.
+        ruby: ['3.1', '3.2', '3.3', '3.4', '4.0']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rubocop
+      - run: bundle exec rake rbs
+      - run: bundle exec rake test
+      - run: gem build flightbyte.gemspec
+
+  package:
+    name: Package (Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.1', '4.0']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - name: Build
+        run: gem build flightbyte.gemspec --output "$RUNNER_TEMP/flightbyte.gem"
+      - name: Only the code, the signatures and the docs are packed
+        run: |
+          ruby -rrubygems/package -e '
+            files = Gem::Package.new(ARGV[0]).spec.files
+            allowed = ->(p) { p.start_with?("lib/", "sig/") || %w[README.md CHANGELOG.md LICENSE].include?(p) }
+            stray = files.reject(&allowed)
+            abort "::error::Unexpected files in the gem: #{stray.join(", ")}" unless stray.empty?
+            puts "#{files.length} files packed"
+          ' "$RUNNER_TEMP/flightbyte.gem"
+      - name: Install it alone and require it
+        working-directory: ${{ runner.temp }}
+        env:
+          GEM_HOME: ${{ runner.temp }}/gems
+          GEM_PATH: ${{ runner.temp }}/gems
+        run: |
+          gem install --local --no-document flightbyte.gem
+          ruby -e '
+            require "flightbyte"
+            abort "loaded from the wrong place" unless $LOADED_FEATURES.grep(/flightbyte\.rb\z/).first.start_with?(ENV["GEM_HOME"])
+            client = FlightByte::Client.new(api_key: "k")
+            signature = FlightByte::Webhook.sign("{}", "whsec_smoke")
+            abort "webhook signing failed" unless FlightByte::Webhook.valid?("{}", signature, "whsec_smoke")
+            puts "flightbyte #{FlightByte::VERSION} installed and loaded on Ruby #{RUBY_VERSION}: #{client.inspect}"
+          '

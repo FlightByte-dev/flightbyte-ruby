@@ -1,0 +1,23 @@
+{
+  "id": "sub_7f3a9c21d04e4b6f8a1c",
+  "status": "active",
+  "flightKey": "TK1848:2026-09-08",
+  "carrier": "TK",
+  "flightNumber": "1848",
+  "date": "2026-09-08",
+  "webhookUrl": "https://example.com/hooks/flights",
+  "secretHint": "whsec_AbCdE...wxyz",
+  "headers": { "x-team": "ops" },
+  "events": ["flight.departed", "departure.gate.changed", "some.future.type"],
+  "delayThresholdMinutes": 10,
+  "metadata": { "booking": "42" },
+  "createdAt": "2026-09-01T10:00:00.000Z",
+  "updatedAt": "2026-09-01T10:00:00.000Z",
+  "lastPolledAt": "2026-09-08T09:00:00.000Z",
+  "lastChangeAt": null,
+  "lastDeliveryAt": null,
+  "deliveredCount": 3,
+  "failedCount": 1,
+  "flightResolved": true,
+  "statusReason": null
+}

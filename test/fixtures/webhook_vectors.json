@@ -1,0 +1,14 @@
+{
+  "secret": "whsec_testSecretForVectors0123456789ab",
+  "timestamp": 1788858600,
+  "cases": [
+    {
+      "file": "webhook_test.json",
+      "signature": "t=1788858600,v1=ed6073a6ed461e20c46f50b3268a548ad271f14613f48e7996662fdab68d1912"
+    },
+    {
+      "file": "webhook_flight_updated.json",
+      "signature": "t=1788858600,v1=7be93ef198330150bbb0dcfb181360d5686f192dce8229a95aa694c279f6f614"
+    }
+  ]
+}

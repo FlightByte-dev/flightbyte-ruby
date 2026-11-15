@@ -1,0 +1,16 @@
+/.bundle/
+/vendor/bundle/
+/pkg/
+/coverage/
+/doc/
+/.yardoc/
+*.gem
+
+# A library is tested against the newest gems each Ruby can install, so the
+# lock file is not kept.
+/Gemfile.lock
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store

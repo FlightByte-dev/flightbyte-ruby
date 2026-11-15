@@ -1,0 +1,22 @@
+name: Feature request
+description: Something the gem should do, or do differently.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The problem, in terms of your app. "Show a passenger when boarding starts" says more than "add a boarding field".
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How you would like it to work. A code sample of the call you wish existed helps.
+      render: ruby
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today
+      description: Any workaround you use now.

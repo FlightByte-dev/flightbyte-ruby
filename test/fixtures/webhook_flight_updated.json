@@ -1,0 +1,1 @@
+{"id":"evt_2","type":"flight.updated","createdAt":"2026-09-08T09:10:00.000Z","subscriptionId":"sub_1","flightKey":"TK1848:2026-09-08","changes":[{"type":"departure.gate.changed","path":"departure.gate","from":"A11","to":"A22","message":"Kapı A11 → A22 🇹🇷 İstanbul","deltaMinutes":null}],"metadata":{"booking":"42"}}

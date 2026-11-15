@@ -1,0 +1,59 @@
+plugins:
+  - rubocop-minitest
+  - rubocop-rake
+
+AllCops:
+  # The oldest Ruby the gem supports, so syntax newer than it is flagged.
+  TargetRubyVersion: 3.1
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - vendor/**/*
+    - pkg/**/*
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Layout/LineLength:
+  Max: 120
+
+# Each model reads as a list of documented fields; the request and webhook
+# code is easier to follow in one piece than split for the metric's sake.
+Metrics/ClassLength:
+  Max: 260
+Metrics/ModuleLength:
+  Max: 200
+Metrics/MethodLength:
+  Max: 30
+  Exclude:
+    - test/**/*
+Metrics/AbcSize:
+  Max: 40
+  Exclude:
+    - test/**/*
+Metrics/CyclomaticComplexity:
+  Max: 12
+Metrics/PerceivedComplexity:
+  Max: 12
+Metrics/ParameterLists:
+  # Methods take the API's parameters as keywords, as the docs name them.
+  CountKeywordArgs: false
+Metrics/BlockLength:
+  Exclude:
+    - test/**/*
+    - flightbyte.gemspec
+
+# `FlightByte::Object` is the response base class, named as in the docs.
+Lint/ConstantResolution:
+  Enabled: false
+
+Minitest/MultipleAssertions:
+  Max: 20
+
+# Webhook.verify returns true or raises, as the other SDKs' verify does.
+Naming/PredicateMethod:
+  AllowedMethods:
+    - verify

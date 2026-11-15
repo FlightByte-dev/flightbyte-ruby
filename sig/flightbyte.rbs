@@ -1,0 +1,414 @@
+# Type signatures for the flightbyte gem's public API.
+module FlightByte
+  VERSION: String
+
+  FLIGHT_PHASES: Array[String]
+  TERMINAL_PHASES: Array[String]
+  SUBSCRIPTION_STATUSES: Array[String]
+  FLIGHT_CHANGE_TYPES: Array[String]
+  WEBHOOK_EVENT_TYPES: Array[String]
+  DELIVERY_STATUSES: Array[String]
+
+  type date_like = String | Date | Time
+  type json = String | Integer | Float | bool | nil | Array[json] | Hash[String, json]
+
+  def self.format_date: (Date | Time value) -> String
+  def self.terminal_phase?: (String? phase) -> bool
+  def self.best_gate_time: (EndpointTimes | Hash[String, untyped] | nil times) -> (FlightTime | Hash[String, untyped] | nil)
+  def self.mask_secret: (String secret) -> String
+
+  class Client
+    DEFAULT_BASE_URL: String
+    DEFAULT_TIMEOUT: Integer
+
+    attr_reader flights: Flights
+    attr_reader subscriptions: Subscriptions
+    attr_reader countries: Countries
+    attr_reader base_url: String
+    attr_reader timeout: Numeric
+    attr_reader user_agent: String
+
+    def initialize: (api_key: String, ?base_url: String, ?timeout: Numeric, ?user_agent: String?) -> void
+    def last_rate_limit: () -> RateLimit?
+  end
+
+  class Flights
+    def get: (carrier: String | Symbol, flight_number: String | Integer, date: date_like,
+              ?origin: String?, ?destination: String?, ?flight_id: String?, ?refresh: bool,
+              ?timeout: Numeric?) -> FlightSnapshot
+    def timeline: (carrier: String | Symbol, flight_number: String | Integer, date: date_like,
+                   ?origin: String?, ?destination: String?, ?timeout: Numeric?) -> FlightTimeline
+  end
+
+  class Subscriptions
+    DEFAULT_PAGE_SIZE: Integer
+
+    def create: (carrier: String | Symbol, flight_number: String | Integer, date: date_like, webhook_url: String,
+                 ?origin: String?, ?destination: String?, ?flight_id: String?, ?secret: String?,
+                 ?events: Array[String | Symbol]?, ?delay_threshold_minutes: Integer?,
+                 ?headers: Hash[String | Symbol, String]?, ?metadata: Hash[String | Symbol, String]?,
+                 ?idempotency_key: String?, ?timeout: Numeric?) -> CreatedSubscription
+    def list: (?status: String?, ?carrier: String?, ?flight_number: (String | Integer)?, ?date: date_like?,
+               ?limit: Integer?, ?offset: Integer?, ?timeout: Numeric?) -> SubscriptionPage
+    def list_all: (?status: String?, ?carrier: String?, ?flight_number: (String | Integer)?, ?date: date_like?,
+                   ?offset: Integer?, ?page_size: Integer, ?timeout: Numeric?) -> Enumerator[Subscription, void]
+                | (?status: String?, ?carrier: String?, ?flight_number: (String | Integer)?, ?date: date_like?,
+                   ?offset: Integer?, ?page_size: Integer, ?timeout: Numeric?) { (Subscription) -> void } -> nil
+    alias each list_all
+    def get: (String id, ?timeout: Numeric?) -> Subscription
+    def update: (String id, ?webhook_url: String?, ?events: Array[String | Symbol]?,
+                 ?delay_threshold_minutes: Integer?, ?headers: Hash[String | Symbol, String]?,
+                 ?metadata: Hash[String | Symbol, String]?, ?timeout: Numeric?) -> Subscription
+    def delete: (String id, ?timeout: Numeric?) -> nil
+    def pause: (String id, ?timeout: Numeric?) -> Subscription
+    def resume: (String id, ?timeout: Numeric?) -> Subscription
+    def send_test: (String id, ?timeout: Numeric?) -> String
+    def deliveries: (String id, ?limit: Integer?, ?timeout: Numeric?) -> Array[DeliveryRecord]
+    def events: (String id, ?limit: Integer?, ?timeout: Numeric?) -> Array[WebhookEvent]
+    def secret: (String id, ?timeout: Numeric?) -> String
+    def rotate_secret: (String id, ?timeout: Numeric?) -> String
+  end
+
+  class Countries
+    def list: (?lang: String?, ?timeout: Numeric?) -> Array[Country]
+    def get: (String code, ?lang: String?, ?timeout: Numeric?) -> Country
+    def flag_url: (String code, ?square: bool) -> String
+  end
+
+  class RateLimitWindow < Struct[untyped]
+    attr_reader limit: Integer
+    attr_reader remaining: Integer
+    attr_reader reset_at: Time?
+  end
+
+  class RateLimit < Struct[untyped]
+    attr_reader minute: RateLimitWindow?
+    attr_reader day: RateLimitWindow?
+    attr_reader month: RateLimitWindow?
+  end
+
+  class Error < StandardError
+  end
+
+  class ConnectionError < Error
+    def timed_out?: () -> bool
+  end
+
+  class APIError < Error
+    attr_reader status: Integer
+    attr_reader messages: Array[String]
+    attr_reader body: Hash[String, untyped]
+    attr_reader raw_body: String
+    attr_reader headers: Hash[String, String]
+    def code: () -> String?
+    def request_id: () -> String?
+  end
+
+  class BadRequestError < APIError
+    def legs: () -> Array[AmbiguousLeg]
+  end
+
+  class AuthenticationError < APIError
+  end
+
+  class PaymentRequiredError < APIError
+    def limit: () -> Numeric?
+    def used: () -> Numeric?
+    def resets_at: () -> String?
+    def cap_cents: () -> Numeric?
+    def balance: () -> Numeric?
+    def expires_at: () -> String?
+  end
+
+  class PermissionDeniedError < APIError
+  end
+
+  class NotFoundError < APIError
+  end
+
+  class RateLimitError < APIError
+    def window: () -> String?
+    def retry_after: () -> Numeric?
+  end
+
+  class ServerError < APIError
+  end
+
+  class UpstreamError < ServerError
+  end
+
+  class UnexpectedStatusError < APIError
+    def location: () -> String?
+  end
+
+  class WebhookSignatureError < Error
+  end
+
+  module Webhook
+    SIGNATURE_HEADER: String
+    TIMESTAMP_HEADER: String
+    EVENT_ID_HEADER: String
+    EVENT_TYPE_HEADER: String
+    SUBSCRIPTION_ID_HEADER: String
+    DELIVERY_ATTEMPT_HEADER: String
+    SIGNATURE_ENV_KEY: String
+    DEFAULT_TOLERANCE: Integer
+    MAX_BODY_BYTES: Integer
+
+    type clock = Time | Numeric
+
+    def self.verify: (String payload, String? signature, String secret, ?tolerance: Numeric, ?now: clock?) -> true
+    def self.valid?: (String payload, String? signature, String secret, ?tolerance: Numeric, ?now: clock?) -> bool
+    def self.construct_event: (String payload, String? signature, String secret, ?tolerance: Numeric,
+                               ?now: clock?) -> WebhookEvent
+    def self.sign: (String payload, String secret, ?timestamp: clock?) -> String
+
+    class RackApp
+      def initialize: (String secret, ?tolerance: Numeric, ?now: clock?,
+                       ?on_error: ^(StandardError, WebhookEvent, Hash[String, untyped]) -> void)
+                      { (WebhookEvent event, Hash[String, untyped] env) -> void } -> void
+      def call: (Hash[String, untyped] env) -> [Integer, Hash[String, String], Array[String]]
+    end
+  end
+
+  # A read-only view of a JSON object the API sent. Fields the API added after
+  # this release read as snake_case methods too (method_missing).
+  class Object
+    def self.fields: () -> Hash[String, untyped]
+    def self.method_name: (String | Symbol key) -> String
+
+    def initialize: (?Hash[String | Symbol, untyped] data) -> void
+    def []: (String | Symbol key) -> untyped
+    def dig: (String | Symbol | Integer key, *String | Symbol | Integer rest) -> untyped
+    def key?: (String | Symbol key) -> bool
+    def keys: () -> Array[String]
+    def to_h: () -> Hash[String, json]
+    def as_json: (*untyped) -> Hash[String, json]
+    def to_json: (*untyped) -> String
+    def deconstruct_keys: (Array[Symbol]? keys) -> Hash[Symbol, untyped]
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+    def inspect: () -> String
+    def to_s: () -> String
+  end
+
+  class CountryRef < Object
+    def code: () -> String
+    def name: () -> String
+    def emoji: () -> String
+    def flag_svg: () -> String
+    def flag_svg_square: () -> String
+  end
+
+  class Country < CountryRef
+    def alpha2: () -> String
+    def has_flag: () -> bool
+    def has_flag?: () -> bool
+  end
+
+  class AirportRef < Object
+    def iata: () -> String
+    def icao: () -> String?
+    def code: () -> String?
+    def name: () -> String
+    def city: () -> String?
+    def state: () -> String?
+    def country: () -> CountryRef
+    def timezone: () -> String?
+  end
+
+  class FlightTime < Object
+    def utc: () -> String
+    def local: () -> String?
+    def timezone: () -> String?
+  end
+
+  class EndpointTimes < Object
+    def scheduled_gate: () -> FlightTime?
+    def estimated_gate: () -> FlightTime?
+    def actual_gate: () -> FlightTime?
+    def scheduled_runway: () -> FlightTime?
+    def estimated_runway: () -> FlightTime?
+    def actual_runway: () -> FlightTime?
+    def best_gate: () -> FlightTime?
+  end
+
+  class FlightEndpoint < Object
+    def airport: () -> AirportRef
+    def terminal: () -> String?
+    def gate: () -> String?
+    def baggage: () -> String?
+    def times: () -> EndpointTimes
+    def best_time_utc: () -> String?
+    def delay_minutes: () -> Integer?
+  end
+
+  class CarrierRef < Object
+    def iata: () -> String
+    def icao: () -> String?
+    def name: () -> String
+  end
+
+  class CodeshareRef < Object
+    def carrier: () -> String
+    def name: () -> String
+    def flight_number: () -> String
+  end
+
+  class FlightStatusInfo < Object
+    def code: () -> String
+    def label: () -> String
+    def description: () -> String?
+    def color: () -> String?
+    def phase: () -> String
+    def delayed: () -> bool
+    def delayed?: () -> bool
+    def cancelled: () -> bool
+    def cancelled?: () -> bool
+    def diverted: () -> bool
+    def diverted?: () -> bool
+    def departure_gate_delay_minutes: () -> Integer?
+    def arrival_gate_delay_minutes: () -> Integer?
+    def terminal?: () -> bool
+  end
+
+  class EquipmentInfo < Object
+    def tail_number: () -> String?
+    def iata: () -> String?
+    def name: () -> String?
+    def source: () -> String?
+  end
+
+  class DurationInfo < Object
+    def scheduled_minutes: () -> Integer?
+    def estimated_minutes: () -> Integer?
+    def actual_minutes: () -> Integer?
+  end
+
+  class TimelineEntry < Object
+    def occurred_at: () -> String
+    def title: () -> String
+    def source: () -> String?
+    def events: () -> Array[String]
+  end
+
+  class FlightLegRef < Object
+    def provider_flight_id: () -> String?
+    def carrier: () -> String?
+    def departure_iata: () -> String
+    def arrival_iata: () -> String
+    def scheduled_departure_local: () -> String?
+    def scheduled_arrival_local: () -> String?
+    def selected: () -> bool
+    def selected?: () -> bool
+  end
+
+  class FlightSnapshot < Object
+    def flight_key: () -> String
+    def carrier_code: () -> String
+    def flight_number: () -> String
+    def date: () -> String
+    def provider_flight_id: () -> String?
+    def fetched_at: () -> String
+    def carrier: () -> CarrierRef
+    def operated_by: () -> String?
+    def codeshares: () -> Array[CodeshareRef]
+    def departure: () -> FlightEndpoint
+    def arrival: () -> FlightEndpoint
+    def diverted: () -> FlightEndpoint?
+    def status: () -> FlightStatusInfo
+    def equipment: () -> EquipmentInfo
+    def duration: () -> DurationInfo
+    def timeline: () -> Array[TimelineEntry]
+    def alternates: () -> Array[FlightLegRef]
+    def fingerprint: () -> String
+    def cached: () -> bool?
+    def cached?: () -> bool
+  end
+
+  class FlightTimeline < Object
+    def flight_key: () -> String
+    def count: () -> Integer
+    def data: () -> Array[TimelineEntry]
+  end
+
+  class Subscription < Object
+    def id: () -> String
+    def status: () -> String
+    def flight_key: () -> String
+    def carrier: () -> String
+    def flight_number: () -> String
+    def date: () -> String
+    def webhook_url: () -> String
+    def secret_hint: () -> String?
+    def secret: () -> String?
+    def headers: () -> Hash[String, String]?
+    def events: () -> Array[String]
+    def delay_threshold_minutes: () -> Integer
+    def metadata: () -> Hash[String, String]?
+    def created_at: () -> String
+    def updated_at: () -> String
+    def last_polled_at: () -> String?
+    def last_change_at: () -> String?
+    def last_delivery_at: () -> String?
+    def delivered_count: () -> Integer
+    def failed_count: () -> Integer
+    def flight_resolved: () -> bool
+    def flight_resolved?: () -> bool
+    def status_reason: () -> String?
+  end
+
+  class CreatedSubscription < Subscription
+    def reused: () -> bool
+    def reused?: () -> bool
+    def flight: () -> FlightSnapshot?
+  end
+
+  class SubscriptionPage < Object
+    def total: () -> Integer
+    def limit: () -> Integer
+    def offset: () -> Integer
+    def data: () -> Array[Subscription]
+  end
+
+  class DeliveryRecord < Object
+    def event_id: () -> String
+    def attempt: () -> Integer
+    def status: () -> String
+    def http_status: () -> Integer?
+    def error: () -> String?
+    def duration_ms: () -> Integer
+    def at: () -> String
+    def change_types: () -> Array[String]
+  end
+
+  class FlightChange < Object
+    def type: () -> String
+    def path: () -> String
+    def from: () -> (String | Numeric | bool | nil)
+    def to: () -> (String | Numeric | bool | nil)
+    def message: () -> String
+    def delta_minutes: () -> Integer?
+  end
+
+  class WebhookEvent < Object
+    def id: () -> String
+    def type: () -> String
+    def created_at: () -> String
+    def subscription_id: () -> String
+    def flight_key: () -> String
+    def flight: () -> FlightSnapshot?
+    def changes: () -> Array[FlightChange]
+    def previous_fetched_at: () -> String?
+    def metadata: () -> Hash[String, String]?
+  end
+
+  class AmbiguousLeg < Object
+    def origin: () -> String
+    def destination: () -> String
+    def carrier: () -> String?
+    def scheduled_departure_local: () -> String?
+    def flight_id: () -> String?
+  end
+end

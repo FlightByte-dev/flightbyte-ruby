@@ -1,0 +1,104 @@
+{
+  "flightKey": "TK1848:2026-09-08",
+  "carrierCode": "TK",
+  "flightNumber": "1848",
+  "date": "2026-09-08",
+  "providerFlightId": "1407084032",
+  "fetchedAt": "2026-09-08T13:20:00.000Z",
+  "carrier": { "iata": "TK", "icao": "THY", "name": "Turkish Airlines" },
+  "operatedBy": null,
+  "codeshares": [
+    { "carrier": "A3", "name": "Aegean Airlines", "flightNumber": "3160" }
+  ],
+  "departure": {
+    "airport": {
+      "iata": "IST",
+      "icao": "LTFM",
+      "code": "IST",
+      "name": "Istanbul Airport",
+      "city": "İstanbul",
+      "state": "",
+      "country": {
+        "code": "TR",
+        "name": "Türkiye",
+        "emoji": "🇹🇷",
+        "flagSvg": "https://api.flightbyte.dev/v1/flags/tr.svg",
+        "flagSvgSquare": "https://api.flightbyte.dev/v1/flags/tr.svg?shape=1x1"
+      },
+      "timezone": "Europe/Istanbul"
+    },
+    "terminal": "M",
+    "gate": "A11",
+    "baggage": null,
+    "times": {
+      "scheduledGate": { "utc": "2026-09-08T09:10:00.000Z", "local": "2026-09-08T12:10:00.000", "timezone": "EEST" },
+      "estimatedGate": { "utc": "2026-09-08T09:25:00.000Z", "local": "2026-09-08T12:25:00.000", "timezone": "EEST" },
+      "actualGate": null,
+      "scheduledRunway": null,
+      "estimatedRunway": null,
+      "actualRunway": null
+    },
+    "bestTimeUtc": "2026-09-08T09:25:00.000Z",
+    "delayMinutes": 15
+  },
+  "arrival": {
+    "airport": {
+      "iata": "CDG",
+      "icao": "LFPG",
+      "name": "Paris Charles de Gaulle Airport",
+      "city": "Paris",
+      "country": {
+        "code": "FR",
+        "name": "France",
+        "emoji": "🇫🇷",
+        "flagSvg": "https://api.flightbyte.dev/v1/flags/fr.svg",
+        "flagSvgSquare": "https://api.flightbyte.dev/v1/flags/fr.svg?shape=1x1"
+      },
+      "timezone": "Europe/Paris"
+    },
+    "terminal": "1",
+    "gate": null,
+    "baggage": "16",
+    "times": {
+      "scheduledGate": { "utc": "2026-09-08T12:55:00.000Z", "local": "2026-09-08T14:55:00.000", "timezone": "CEST" }
+    },
+    "bestTimeUtc": "2026-09-08T12:55:00.000Z",
+    "delayMinutes": -5
+  },
+  "diverted": null,
+  "status": {
+    "code": "S",
+    "label": "Scheduled",
+    "description": "Delayed",
+    "color": "yellow",
+    "phase": "scheduled",
+    "delayed": true,
+    "cancelled": false,
+    "diverted": false,
+    "departureGateDelayMinutes": 15,
+    "arrivalGateDelayMinutes": null
+  },
+  "equipment": { "tailNumber": "TC-LTP", "iata": "32Q", "name": "Airbus A321neo", "source": "Actual" },
+  "duration": { "scheduledMinutes": 225, "estimatedMinutes": null, "actualMinutes": null },
+  "timeline": [
+    {
+      "occurredAt": "2026-09-08T08:38:16.000Z",
+      "title": "Time Adjustment",
+      "source": "Airline",
+      "events": ["Estimated Gate Departure changed to 12:25"]
+    }
+  ],
+  "alternates": [
+    {
+      "providerFlightId": "1407084032",
+      "carrier": "TK",
+      "departureIata": "IST",
+      "arrivalIata": "CDG",
+      "scheduledDepartureLocal": "12:10",
+      "scheduledArrivalLocal": "14:55",
+      "selected": true
+    }
+  ],
+  "fingerprint": "9f2b0c",
+  "cached": true
+}
