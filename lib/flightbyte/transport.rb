@@ -152,7 +152,10 @@ module FlightByte
       http.read_timeout = remaining
       http.write_timeout = remaining
 
-      request = Net::HTTP.const_get(method.capitalize).new(uri.request_uri, headers)
+      # Built as a generic request so that one without a payload has no body
+      # at all. Before Ruby 4.0, Net::HTTP::Post and friends give a body-less
+      # request an empty body and then a form content type, with a warning.
+      request = Net::HTTPGenericRequest.new(method, !payload.nil?, method != "HEAD", uri.request_uri, headers)
       http.start do |connection|
         response = connection.request(request, payload)
         Response.new(
